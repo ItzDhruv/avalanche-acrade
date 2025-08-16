@@ -556,7 +556,7 @@ const GameComponent: React.FC<GameComponentProps> = ({
                       <span>Fly Again (1 DT)</span>
                     </button>
 
-                    {canClaimNFT && (
+                    {canClaimNFT && ( 
                       <button
                         onClick={() => onClaimNFT(score)}
                         className="flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl hover:from-green-600 hover:to-emerald-600 transition-all transform hover:scale-105 text-lg font-bold shadow-lg animate-pulse"

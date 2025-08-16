@@ -4,7 +4,7 @@ import { ethers } from 'ethers';
 import DtokenAbi from "../ContractAbi/Dtoken.json";
 import toast from 'react-hot-toast';
 
-interface SnakeGameComponentProps {
+interface BallPaddleGameProps {
   onScore?: (score: number) => void;
   onClaimNFT?: (score: number) => void;
   claimedScores?: Set<number>;
@@ -13,23 +13,28 @@ interface SnakeGameComponentProps {
   onRefreshTokenBalance: () => void;
 }
 
-interface Position {
+interface Ball {
   x: number;
   y: number;
+  dx: number;
+  dy: number;
+  radius: number;
 }
 
-interface Food extends Position {
-  type: 'normal' | 'special' | 'poison';
-  points: number;
+interface Paddle {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
-// Snake Token Contract ABI
+// Ball Paddle Token Contract ABI
 const DT_CONTRACT_ABI = DtokenAbi;
 
 // Replace with your actual Dragon Token contract address
 const DT_CONTRACT_ADDRESS = "0x079Fe31EE22088a6B9cB2615D8e6AB9DFb3A75a5";
 
-const SnakeGameComponent: React.FC<SnakeGameComponentProps> = ({ 
+const BallPaddleGame: React.FC<BallPaddleGameProps> = ({ 
   onScore = () => {}, 
   onClaimNFT = () => {}, 
   claimedScores = new Set(), 
@@ -40,15 +45,14 @@ const SnakeGameComponent: React.FC<SnakeGameComponentProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number>();
   const gameLoopRef = useRef<boolean>(false);
+  const mouseXRef = useRef<number>(0);
   const gameObjectsRef = useRef({
-    snake: [] as Position[],
-    food: null as Food | null,
-    direction: { x: 1, y: 0 },
-    nextDirection: { x: 1, y: 0 },
+    ball: { x: 0, y: 0, dx: 0, dy: 0, radius: 0 } as Ball,
+    paddle: { x: 0, y: 0, width: 0, height: 0 } as Paddle,
     score: 0,
-    gameSpeed: 150,
+    gameSpeed: 1,
     lastRender: 0,
-    obstacles: [] as Position[]
+    keys: { left: false, right: false }
   });
   
   const [gameState, setGameState] = useState<'idle' | 'playing' | 'gameOver'>('idle');
@@ -56,7 +60,7 @@ const SnakeGameComponent: React.FC<SnakeGameComponentProps> = ({
   const [isPayingForGame, setIsPayingForGame] = useState(false);
   const [highScore, setHighScore] = useState(() => {
     try {
-      const saved = localStorage?.getItem('snakeHighScore');
+      const saved = localStorage?.getItem('ballPaddleHighScore');
       return saved ? parseInt(saved) : 0;
     } catch {
       return 0;
@@ -66,103 +70,42 @@ const SnakeGameComponent: React.FC<SnakeGameComponentProps> = ({
   // Constants
   const CANVAS_WIDTH = 800;
   const CANVAS_HEIGHT = 600;
-  const GRID_SIZE = 20;
-  const GRID_WIDTH = CANVAS_WIDTH / GRID_SIZE;
-  const GRID_HEIGHT = CANVAS_HEIGHT / GRID_SIZE;
+  const BALL_RADIUS = 12;
+  const PADDLE_WIDTH = 120;
+  const PADDLE_HEIGHT = 15;
   const GAME_COST_DT = 1; // Cost to play one game
-  const INITIAL_SNAKE_LENGTH = 4;
+  const BASE_BALL_SPEED = 5;
+  const PADDLE_SPEED = 8;
 
   // Check if player has enough tokens to play
   const hasEnoughTokens = parseFloat(dtTokenBalance) >= GAME_COST_DT;
 
-  // Generate random food position
-  const generateFood = useCallback((): Food => {
-    const gameObjects = gameObjectsRef.current;
-    let newFood: Food;
-    let attempts = 0;
-    const maxAttempts = 100;
-
-    do {
-      const x = Math.floor(Math.random() * GRID_WIDTH);
-      const y = Math.floor(Math.random() * GRID_HEIGHT);
-      
-      // Determine food type and points based on score for increased difficulty
-      let type: 'normal' | 'special' | 'poison' = 'normal';
-      let points = 1;
-      
-      if (gameObjects.score > 10) {
-        const rand = Math.random();
-        if (rand < 0.1) {
-          type = 'poison'; // 10% chance of poison food (loses points)
-          points = -2;
-        } else if (rand < 0.3) {
-          type = 'special'; // 20% chance of special food
-          points = 2;
-        }
-      }
-
-      newFood = { x, y, type, points };
-      attempts++;
-    } while (
-      attempts < maxAttempts &&
-      (gameObjects.snake.some(segment => segment.x === newFood.x && segment.y === newFood.y) ||
-       gameObjects.obstacles.some(obstacle => obstacle.x === newFood.x && obstacle.y === newFood.y))
-    );
-
-    return newFood;
-  }, []);
-
-  // Generate obstacles for increased difficulty
-  const generateObstacles = useCallback((score: number): Position[] => {
-    const obstacles: Position[] = [];
-    const obstacleCount = Math.floor(score / 5); // Add obstacle every 5 points
-    
-    for (let i = 0; i < obstacleCount; i++) {
-      let obstacle: Position;
-      let attempts = 0;
-      const maxAttempts = 50;
-
-      do {
-        obstacle = {
-          x: Math.floor(Math.random() * GRID_WIDTH),
-          y: Math.floor(Math.random() * GRID_HEIGHT)
-        };
-        attempts++;
-      } while (
-        attempts < maxAttempts &&
-        (obstacle.x < 5 || obstacle.y < 5 || // Keep away from starting area
-         obstacle.x > GRID_WIDTH - 5 || obstacle.y > GRID_HEIGHT - 5)
-      );
-
-      obstacles.push(obstacle);
-    }
-
-    return obstacles;
-  }, []);
-
   // Initialize game objects
   const initializeGame = useCallback(() => {
-    const centerX = Math.floor(GRID_WIDTH / 2);
-    const centerY = Math.floor(GRID_HEIGHT / 2);
-    
-    const snake: Position[] = [];
-    for (let i = 0; i < INITIAL_SNAKE_LENGTH; i++) {
-      snake.push({ x: centerX - i, y: centerY });
-    }
-
-    gameObjectsRef.current = {
-      snake,
-      food: null,
-      direction: { x: 1, y: 0 },
-      nextDirection: { x: 1, y: 0 },
-      score: 0,
-      gameSpeed: 150,
-      lastRender: 0,
-      obstacles: []
+    const ball: Ball = {
+      x: CANVAS_WIDTH / 2,
+      y: CANVAS_HEIGHT / 2,
+      dx: (Math.random() > 0.5 ? 1 : -1) * BASE_BALL_SPEED * (0.7 + Math.random() * 0.6),
+      dy: BASE_BALL_SPEED * (0.7 + Math.random() * 0.6),
+      radius: BALL_RADIUS
     };
 
-    gameObjectsRef.current.food = generateFood();
-  }, [generateFood]);
+    const paddle: Paddle = {
+      x: (CANVAS_WIDTH - PADDLE_WIDTH) / 2,
+      y: CANVAS_HEIGHT - 40,
+      width: PADDLE_WIDTH,
+      height: PADDLE_HEIGHT
+    };
+
+    gameObjectsRef.current = {
+      ball,
+      paddle,
+      score: 0,
+      gameSpeed: 1,
+      lastRender: 0,
+      keys: { left: false, right: false }
+    };
+  }, []);
 
   // Function to spend DT tokens before starting game
   const spendTokenForGame = async (): Promise<boolean> => {
@@ -234,8 +177,8 @@ const SnakeGameComponent: React.FC<SnakeGameComponentProps> = ({
 
     const gameObjects = gameObjectsRef.current;
 
-    // Control game speed
-    if (currentTime - gameObjects.lastRender < gameObjects.gameSpeed) {
+    // Control game speed (60 FPS)
+    if (currentTime - gameObjects.lastRender < 16.67) {
       animationRef.current = requestAnimationFrame(gameLoop);
       return;
     }
@@ -243,229 +186,200 @@ const SnakeGameComponent: React.FC<SnakeGameComponentProps> = ({
 
     // Clear canvas with gradient background
     const gradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
-    gradient.addColorStop(0, '#0f0f23');
-    gradient.addColorStop(1, '#1a1a2e');
+    gradient.addColorStop(0, '#1a1a2e');
+    gradient.addColorStop(1, '#16213e');
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-    // Draw grid
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-    ctx.lineWidth = 1;
-    for (let i = 0; i <= GRID_WIDTH; i++) {
-      ctx.beginPath();
-      ctx.moveTo(i * GRID_SIZE, 0);
-      ctx.lineTo(i * GRID_SIZE, CANVAS_HEIGHT);
-      ctx.stroke();
+    // Draw boundary lines
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([10, 5]);
+    // Top
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(CANVAS_WIDTH, 0);
+    ctx.stroke();
+    // Left
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(0, CANVAS_HEIGHT);
+    ctx.stroke();
+    // Right
+    ctx.beginPath();
+    ctx.moveTo(CANVAS_WIDTH, 0);
+    ctx.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Update paddle position (keyboard controls)
+    if (gameObjects.keys.left && gameObjects.paddle.x > 0) {
+      gameObjects.paddle.x -= PADDLE_SPEED;
     }
-    for (let i = 0; i <= GRID_HEIGHT; i++) {
-      ctx.beginPath();
-      ctx.moveTo(0, i * GRID_SIZE);
-      ctx.lineTo(CANVAS_WIDTH, i * GRID_SIZE);
-      ctx.stroke();
-    }
-
-    // Update snake direction
-    gameObjects.direction = { ...gameObjects.nextDirection };
-
-    // Move snake
-    const head = { ...gameObjects.snake[0] };
-    head.x += gameObjects.direction.x;
-    head.y += gameObjects.direction.y;
-
-    // Check wall collision
-    if (head.x < 0 || head.x >= GRID_WIDTH || head.y < 0 || head.y >= GRID_HEIGHT) {
-      gameLoopRef.current = false;
-      setGameState('gameOver');
-      if (gameObjects.score > highScore) {
-        setHighScore(gameObjects.score);
-        try {
-          localStorage?.setItem('snakeHighScore', gameObjects.score.toString());
-        } catch {}
-      }
-      return;
+    if (gameObjects.keys.right && gameObjects.paddle.x < CANVAS_WIDTH - gameObjects.paddle.width) {
+      gameObjects.paddle.x += PADDLE_SPEED;
     }
 
-    // Check self collision
-    if (gameObjects.snake.some(segment => segment.x === head.x && segment.y === head.y)) {
-      gameLoopRef.current = false;
-      setGameState('gameOver');
-      if (gameObjects.score > highScore) {
-        setHighScore(gameObjects.score);
-        try {
-          localStorage?.setItem('snakeHighScore', gameObjects.score.toString());
-        } catch {}
-      }
-      return;
+    // Mouse control for paddle
+    gameObjects.paddle.x = mouseXRef.current - gameObjects.paddle.width / 2;
+    gameObjects.paddle.x = Math.max(0, Math.min(CANVAS_WIDTH - gameObjects.paddle.width, gameObjects.paddle.x));
+
+    // Update ball position
+    gameObjects.ball.x += gameObjects.ball.dx;
+    gameObjects.ball.y += gameObjects.ball.dy;
+
+    // Ball collision with walls
+    // Top wall
+    if (gameObjects.ball.y - gameObjects.ball.radius <= 0) {
+      gameObjects.ball.y = gameObjects.ball.radius;
+      gameObjects.ball.dy = -gameObjects.ball.dy;
     }
 
-    // Check obstacle collision
-    if (gameObjects.obstacles.some(obstacle => obstacle.x === head.x && obstacle.y === head.y)) {
-      gameLoopRef.current = false;
-      setGameState('gameOver');
-      if (gameObjects.score > highScore) {
-        setHighScore(gameObjects.score);
-        try {
-          localStorage?.setItem('snakeHighScore', gameObjects.score.toString());
-        } catch {}
-      }
-      return;
+    // Left wall
+    if (gameObjects.ball.x - gameObjects.ball.radius <= 0) {
+      gameObjects.ball.x = gameObjects.ball.radius;
+      gameObjects.ball.dx = -gameObjects.ball.dx;
     }
 
-    gameObjects.snake.unshift(head);
+    // Right wall
+    if (gameObjects.ball.x + gameObjects.ball.radius >= CANVAS_WIDTH) {
+      gameObjects.ball.x = CANVAS_WIDTH - gameObjects.ball.radius;
+      gameObjects.ball.dx = -gameObjects.ball.dx;
+    }
 
-    // Check food collision
-    let ate = false;
-    if (gameObjects.food && head.x === gameObjects.food.x && head.y === gameObjects.food.y) {
-      gameObjects.score += gameObjects.food.points;
-      if (gameObjects.score < 0) gameObjects.score = 0; // Don't allow negative scores
-      if (gameObjects.score > 25) gameObjects.score = 25; // Cap at 25
+    // Ball collision with paddle
+    if (
+      gameObjects.ball.x >= gameObjects.paddle.x &&
+      gameObjects.ball.x <= gameObjects.paddle.x + gameObjects.paddle.width &&
+      gameObjects.ball.y + gameObjects.ball.radius >= gameObjects.paddle.y &&
+      gameObjects.ball.y - gameObjects.ball.radius <= gameObjects.paddle.y + gameObjects.paddle.height &&
+      gameObjects.ball.dy > 0
+    ) {
+      // Calculate hit position on paddle (for angle variation)
+      const hitPos = (gameObjects.ball.x - gameObjects.paddle.x) / gameObjects.paddle.width;
+      const angle = (hitPos - 0.5) * Math.PI * 0.5; // -45° to +45°
       
+      const speed = Math.sqrt(gameObjects.ball.dx * gameObjects.ball.dx + gameObjects.ball.dy * gameObjects.ball.dy);
+      const newSpeed = Math.min(speed + 0.2, BASE_BALL_SPEED * 2.5); // Gradually increase speed, cap at 2.5x
+      
+      gameObjects.ball.dx = newSpeed * Math.sin(angle);
+      gameObjects.ball.dy = -newSpeed * Math.cos(angle);
+      
+      // Ensure minimum upward velocity
+      if (Math.abs(gameObjects.ball.dy) < 2) {
+        gameObjects.ball.dy = gameObjects.ball.dy > 0 ? 2 : -2;
+      }
+
+      // Update score
+      gameObjects.score++;
       setScore(gameObjects.score);
       onScore(gameObjects.score);
-      ate = true;
 
-      // Generate new obstacles every few points
-      if (gameObjects.score % 3 === 0 && gameObjects.score > 0) {
-        gameObjects.obstacles = generateObstacles(gameObjects.score);
+      // Cap score at 20 to make it challenging
+      if (gameObjects.score >= 20) {
+        gameObjects.score = 20;
+        setScore(20);
       }
-
-      // Increase speed as score increases (makes it harder)
-      gameObjects.gameSpeed = Math.max(80, 150 - gameObjects.score * 3);
-
-      gameObjects.food = generateFood();
     }
 
-    if (!ate) {
-      gameObjects.snake.pop();
+    // Game over if ball falls below paddle
+    if (gameObjects.ball.y - gameObjects.ball.radius > CANVAS_HEIGHT) {
+      gameLoopRef.current = false;
+      setGameState('gameOver');
+      if (gameObjects.score > highScore) {
+        setHighScore(gameObjects.score);
+        try {
+          localStorage?.setItem('ballPaddleHighScore', gameObjects.score.toString());
+        } catch {}
+      }
+      return;
     }
 
-    // Draw obstacles
-    gameObjects.obstacles.forEach(obstacle => {
-      const gradient = ctx.createRadialGradient(
-        obstacle.x * GRID_SIZE + GRID_SIZE/2, 
-        obstacle.y * GRID_SIZE + GRID_SIZE/2, 
-        0,
-        obstacle.x * GRID_SIZE + GRID_SIZE/2, 
-        obstacle.y * GRID_SIZE + GRID_SIZE/2, 
-        GRID_SIZE/2
-      );
-      gradient.addColorStop(0, '#dc2626');
-      gradient.addColorStop(1, '#991b1b');
-      ctx.fillStyle = gradient;
-      ctx.fillRect(
-        obstacle.x * GRID_SIZE + 1, 
-        obstacle.y * GRID_SIZE + 1, 
-        GRID_SIZE - 2, 
-        GRID_SIZE - 2
-      );
-      
-      // Add glow effect
-      ctx.shadowColor = '#dc2626';
-      ctx.shadowBlur = 10;
-      ctx.fillRect(
-        obstacle.x * GRID_SIZE + 1, 
-        obstacle.y * GRID_SIZE + 1, 
-        GRID_SIZE - 2, 
-        GRID_SIZE - 2
-      );
-      ctx.shadowBlur = 0;
-    });
+    // Draw paddle with gradient
+    const paddleGradient = ctx.createLinearGradient(
+      gameObjects.paddle.x, 
+      gameObjects.paddle.y, 
+      gameObjects.paddle.x, 
+      gameObjects.paddle.y + gameObjects.paddle.height
+    );
+    paddleGradient.addColorStop(0, '#4ade80');
+    paddleGradient.addColorStop(1, '#16a34a');
+    
+    ctx.fillStyle = paddleGradient;
+    ctx.fillRect(
+      gameObjects.paddle.x, 
+      gameObjects.paddle.y, 
+      gameObjects.paddle.width, 
+      gameObjects.paddle.height
+    );
+    
+    // Paddle glow effect
+    ctx.shadowColor = '#4ade80';
+    ctx.shadowBlur = 15;
+    ctx.fillRect(
+      gameObjects.paddle.x, 
+      gameObjects.paddle.y, 
+      gameObjects.paddle.width, 
+      gameObjects.paddle.height
+    );
+    ctx.shadowBlur = 0;
 
-    // Draw food
-    if (gameObjects.food) {
-      const food = gameObjects.food;
-      let foodColor = '#10b981'; // Normal food - green
-      let glowColor = '#10b981';
-      
-      if (food.type === 'special') {
-        foodColor = '#f59e0b'; // Special food - yellow
-        glowColor = '#f59e0b';
-      } else if (food.type === 'poison') {
-        foodColor = '#ef4444'; // Poison food - red
-        glowColor = '#ef4444';
-      }
+    // Draw ball with gradient and glow
+    const ballGradient = ctx.createRadialGradient(
+      gameObjects.ball.x - 3, 
+      gameObjects.ball.y - 3, 
+      0,
+      gameObjects.ball.x, 
+      gameObjects.ball.y, 
+      gameObjects.ball.radius
+    );
+    ballGradient.addColorStop(0, '#60a5fa');
+    ballGradient.addColorStop(1, '#1d4ed8');
+    
+    ctx.fillStyle = ballGradient;
+    ctx.shadowColor = '#60a5fa';
+    ctx.shadowBlur = 20;
+    
+    ctx.beginPath();
+    ctx.arc(gameObjects.ball.x, gameObjects.ball.y, gameObjects.ball.radius, 0, 2 * Math.PI);
+    ctx.fill();
+    ctx.shadowBlur = 0;
 
-      // Food glow effect
-      ctx.shadowColor = glowColor;
-      ctx.shadowBlur = 15;
-      
-      const foodGradient = ctx.createRadialGradient(
-        food.x * GRID_SIZE + GRID_SIZE/2, 
-        food.y * GRID_SIZE + GRID_SIZE/2, 
-        0,
-        food.x * GRID_SIZE + GRID_SIZE/2, 
-        food.y * GRID_SIZE + GRID_SIZE/2, 
-        GRID_SIZE/2
-      );
-      foodGradient.addColorStop(0, foodColor);
-      foodGradient.addColorStop(1, foodColor + '80');
-      ctx.fillStyle = foodGradient;
-      
+    // Ball trail effect
+    ctx.globalAlpha = 0.3;
+    ctx.fillStyle = '#60a5fa';
+    for (let i = 1; i <= 3; i++) {
       ctx.beginPath();
       ctx.arc(
-        food.x * GRID_SIZE + GRID_SIZE/2, 
-        food.y * GRID_SIZE + GRID_SIZE/2, 
-        GRID_SIZE/2 - 2, 
+        gameObjects.ball.x - gameObjects.ball.dx * i * 0.3, 
+        gameObjects.ball.y - gameObjects.ball.dy * i * 0.3, 
+        gameObjects.ball.radius * (0.8 - i * 0.2), 
         0, 
         2 * Math.PI
       );
       ctx.fill();
-      ctx.shadowBlur = 0;
-
-      // Food type indicator
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 12px monospace';
-      ctx.textAlign = 'center';
-      const text = food.type === 'special' ? '★' : food.type === 'poison' ? '☠' : '●';
-      ctx.fillText(
-        text, 
-        food.x * GRID_SIZE + GRID_SIZE/2, 
-        food.y * GRID_SIZE + GRID_SIZE/2 + 4
-      );
     }
+    ctx.globalAlpha = 1;
 
-    // Draw snake
-    gameObjects.snake.forEach((segment, index) => {
-      let segmentColor = index === 0 ? '#22c55e' : '#16a34a'; // Head brighter
-      
-      // Create gradient for snake segments
-      const segmentGradient = ctx.createLinearGradient(
-        segment.x * GRID_SIZE, 
-        segment.y * GRID_SIZE, 
-        segment.x * GRID_SIZE + GRID_SIZE, 
-        segment.y * GRID_SIZE + GRID_SIZE
-      );
-      segmentGradient.addColorStop(0, segmentColor);
-      segmentGradient.addColorStop(1, index === 0 ? '#15803d' : '#166534');
-      
-      ctx.fillStyle = segmentGradient;
-      ctx.fillRect(
-        segment.x * GRID_SIZE + 1, 
-        segment.y * GRID_SIZE + 1, 
-        GRID_SIZE - 2, 
-        GRID_SIZE - 2
-      );
-
-      // Snake head details
-      if (index === 0) {
-        ctx.fillStyle = '#ffffff';
-        // Eyes
-        ctx.fillRect(segment.x * GRID_SIZE + 5, segment.y * GRID_SIZE + 5, 3, 3);
-        ctx.fillRect(segment.x * GRID_SIZE + 12, segment.y * GRID_SIZE + 5, 3, 3);
-      }
-    });
-
-    // Draw score and info with shadows
+    // Draw score with shadow
     ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-    ctx.font = 'bold 24px monospace';
-    ctx.fillText(`Score: ${gameObjects.score}`, 22, 42);
-    ctx.fillText(`High: ${highScore}`, 22, 72);
-    ctx.fillText(`Speed: ${(160 - gameObjects.gameSpeed).toFixed(0)}`, 22, 102);
+    ctx.font = 'bold 36px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(`Score: ${gameObjects.score}`, CANVAS_WIDTH / 2 + 2, 52);
     
     ctx.fillStyle = '#ffffff';
-    ctx.fillText(`Score: ${gameObjects.score}`, 20, 40);
-    ctx.fillText(`High: ${highScore}`, 20, 70);
-    ctx.fillText(`Speed: ${(160 - gameObjects.gameSpeed).toFixed(0)}`, 20, 100);
+    ctx.fillText(`Score: ${gameObjects.score}`, CANVAS_WIDTH / 2, 50);
+
+    // Speed indicator
+    const currentSpeed = Math.sqrt(gameObjects.ball.dx * gameObjects.ball.dx + gameObjects.ball.dy * gameObjects.ball.dy);
+    const speedText = `Speed: ${currentSpeed.toFixed(1)}`;
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    ctx.font = 'bold 18px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(speedText, 22, 92);
+    
+    ctx.fillStyle = '#10b981';
+    ctx.fillText(speedText, 20, 90);
 
     // Draw difficulty indicator
     const difficultyText = gameObjects.score < 5 ? 'Easy' : 
@@ -476,13 +390,14 @@ const SnakeGameComponent: React.FC<SnakeGameComponentProps> = ({
                            gameObjects.score < 15 ? '#ef4444' : '#8b5cf6';
     
     ctx.fillStyle = difficultyColor;
-    ctx.font = '16px monospace';
-    ctx.fillText(difficultyText, CANVAS_WIDTH - 100, 30);
+    ctx.font = '18px monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(difficultyText, CANVAS_WIDTH - 20, 90);
 
     if (gameLoopRef.current) {
       animationRef.current = requestAnimationFrame(gameLoop);
     }
-  }, [highScore, onScore, generateFood, generateObstacles]);
+  }, [highScore, onScore]);
 
   // Start game loop when playing
   useEffect(() => {
@@ -503,17 +418,6 @@ const SnakeGameComponent: React.FC<SnakeGameComponentProps> = ({
       }
     };
   }, [gameState, gameLoop]);
-
-  const changeDirection = useCallback((newDirection: Position) => {
-    if (gameState === 'playing') {
-      const gameObjects = gameObjectsRef.current;
-      // Prevent reverse direction
-      if (newDirection.x === -gameObjects.direction.x && newDirection.y === -gameObjects.direction.y) {
-        return;
-      }
-      gameObjects.nextDirection = newDirection;
-    }
-  }, [gameState]);
 
   const startGame = useCallback(async () => {
     if (isPayingForGame) return; // Prevent double clicks while processing
@@ -543,30 +447,43 @@ const SnakeGameComponent: React.FC<SnakeGameComponentProps> = ({
     initializeGame();
   }, [initializeGame]);
 
+  // Mouse controls
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (gameState === 'playing') {
+        const canvas = canvasRef.current;
+        if (canvas) {
+          const rect = canvas.getBoundingClientRect();
+          mouseXRef.current = e.clientX - rect.left;
+        }
+      }
+    };
+
+    const canvas = canvasRef.current;
+    if (canvas) {
+      canvas.addEventListener('mousemove', handleMouseMove);
+      return () => {
+        canvas.removeEventListener('mousemove', handleMouseMove);
+      };
+    }
+  }, [gameState]);
+
   // Keyboard controls
   useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
+    const handleKeyDown = (e: KeyboardEvent) => {
       e.preventDefault();
       
       if (gameState === 'idle' && e.code === 'Space') {
         startGame();
       } else if (gameState === 'playing') {
         switch (e.code) {
-          case 'ArrowUp':
-          case 'KeyW':
-            changeDirection({ x: 0, y: -1 });
-            break;
-          case 'ArrowDown':
-          case 'KeyS':
-            changeDirection({ x: 0, y: 1 });
-            break;
           case 'ArrowLeft':
           case 'KeyA':
-            changeDirection({ x: -1, y: 0 });
+            gameObjectsRef.current.keys.left = true;
             break;
           case 'ArrowRight':
           case 'KeyD':
-            changeDirection({ x: 1, y: 0 });
+            gameObjectsRef.current.keys.right = true;
             break;
         }
       } else if (gameState === 'gameOver' && e.code === 'Space') {
@@ -574,11 +491,26 @@ const SnakeGameComponent: React.FC<SnakeGameComponentProps> = ({
       }
     };
 
-    window.addEventListener('keydown', handleKeyPress);
-    return () => {
-      window.removeEventListener('keydown', handleKeyPress);
+    const handleKeyUp = (e: KeyboardEvent) => {
+      switch (e.code) {
+        case 'ArrowLeft':
+        case 'KeyA':
+          gameObjectsRef.current.keys.left = false;
+          break;
+        case 'ArrowRight':
+        case 'KeyD':
+          gameObjectsRef.current.keys.right = false;
+          break;
+      }
     };
-  }, [gameState, startGame, changeDirection, resetGame]);
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [gameState, startGame, resetGame]);
 
   const isScoreClaimed = claimedScores.has(score);
   const canClaimNFT = gameState === 'gameOver' && score > 0 && !isScoreClaimed && walletConnected;
@@ -586,13 +518,13 @@ const SnakeGameComponent: React.FC<SnakeGameComponentProps> = ({
   return (
     <div className="max-w-6xl mx-auto p-4 bg-black text-white min-h-screen">
       <div className="text-center mb-10">
-        <h2 className="text-5xl font-extrabold mb-4 bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent leading-normal">
-          Viper's Quest
+        <h2 className="text-5xl font-extrabold mb-4 bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent leading-normal">
+          Paddle Master
         </h2>
         
         <p className="text-gray-400 max-w-2xl mx-auto text-lg">
-          Guide the mystical serpent through an ever-changing maze. Collect treasures, avoid obstacles, and achieve unique scores to claim exclusive NFTs.
-          Each quest costs <span className="text-white font-semibold">1 DT token</span> — make your journey legendary!
+          Control your paddle to keep the ball bouncing! Each bounce scores a point, but the ball gets faster with every hit.
+          Can you reach the legendary score of 20? Each game costs <span className="text-white font-semibold">1 DT token</span>!
         </p>
       </div>
 
@@ -620,14 +552,14 @@ const SnakeGameComponent: React.FC<SnakeGameComponentProps> = ({
               ref={canvasRef}
               width={CANVAS_WIDTH}
               height={CANVAS_HEIGHT}
-              className="border-2 border-gray-600 rounded-lg shadow-lg"
+              className="border-2 border-gray-600 rounded-lg shadow-lg cursor-none"
             />
             
             {/* Game Overlays */}
             {gameState === 'idle' && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/80 rounded-lg backdrop-blur-sm">
                 <div className="text-center">
-                  <h3 className="text-4xl font-bold mb-6 text-green-400">Ready to Slither?</h3>
+                  <h3 className="text-4xl font-bold mb-6 text-blue-400">Ready to Bounce?</h3>
                   
                   {/* Game Cost Display */}
                   <div className="mb-6 p-4 bg-gray-800/80 rounded-lg border border-gray-600">
@@ -648,7 +580,7 @@ const SnakeGameComponent: React.FC<SnakeGameComponentProps> = ({
                         ? 'bg-gray-600 cursor-not-allowed'
                         : !hasEnoughTokens || !walletConnected
                         ? 'bg-gray-600 cursor-not-allowed'
-                        : 'bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 hover:scale-105'
+                        : 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:from-blue-600 hover:to-cyan-600 hover:scale-105'
                     }`}
                   >
                     {isPayingForGame ? (
@@ -667,7 +599,7 @@ const SnakeGameComponent: React.FC<SnakeGameComponentProps> = ({
                     ) : (
                       <>
                         <Play className="h-7 w-7" />
-                        <span>Begin Quest</span>
+                        <span>Start Bouncing</span>
                       </>
                     )}
                   </button>
@@ -676,12 +608,11 @@ const SnakeGameComponent: React.FC<SnakeGameComponentProps> = ({
                     <div className="mt-6 space-y-3 text-gray-300">
                       <p className="text-lg font-semibold">🎮 Controls:</p>
                       <div className="grid grid-cols-2 gap-2 text-sm max-w-sm mx-auto">
-                        <kbd className="px-3 py-2 bg-gray-700 rounded-md">↑ W</kbd>
-                        <kbd className="px-3 py-2 bg-gray-700 rounded-md">↓ S</kbd>
                         <kbd className="px-3 py-2 bg-gray-700 rounded-md">← A</kbd>
                         <kbd className="px-3 py-2 bg-gray-700 rounded-md">→ D</kbd>
+                        <kbd className="px-3 py-2 bg-gray-700 rounded-md col-span-2">Mouse Move</kbd>
                       </div>
-                      <p className="text-sm text-gray-400">Use arrow keys or WASD to move!</p>
+                      <p className="text-sm text-gray-400">Use arrow keys, A/D, or mouse to control paddle!</p>
                     </div>
                   )}
                 </div>
@@ -691,8 +622,8 @@ const SnakeGameComponent: React.FC<SnakeGameComponentProps> = ({
             {gameState === 'gameOver' && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/85 rounded-lg backdrop-blur-sm">
                 <div className="text-center max-w-md">
-                  <div className="text-5xl mb-4">🐍</div>
-                  <h3 className="text-4xl font-bold mb-3 text-red-400">Quest Complete!</h3>
+                  <div className="text-5xl mb-4">🏓</div>
+                  <h3 className="text-4xl font-bold mb-3 text-red-400">Game Over!</h3>
                   <p className="text-3xl mb-4 text-yellow-400 font-bold">Final Score: {score}</p>
                   {score > highScore && score > 0 && (
                     <p className="text-green-400 mb-6 text-xl animate-pulse">🎉 New High Score!</p>
@@ -704,7 +635,7 @@ const SnakeGameComponent: React.FC<SnakeGameComponentProps> = ({
                       className="flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all transform hover:scale-105 text-lg font-bold shadow-lg"
                     >
                       <RotateCcw className="h-6 w-6" />
-                      <span>New Quest (1 DT)</span>
+                      <span>New Game (1 DT)</span>
                     </button>
 
                     {canClaimNFT && (
@@ -732,7 +663,7 @@ const SnakeGameComponent: React.FC<SnakeGameComponentProps> = ({
                     )}
                   </div>
                   
-                  <p className="text-gray-400 text-sm mt-6">Press SPACE to start a new quest</p>
+                  <p className="text-gray-400 text-sm mt-6">Press SPACE to start a new game</p>
                 </div>
               </div>
             )}
@@ -743,7 +674,7 @@ const SnakeGameComponent: React.FC<SnakeGameComponentProps> = ({
             <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-6 border border-gray-600 shadow-lg">
               <h4 className="text-2xl font-bold mb-4 flex items-center text-yellow-400">
                 <Award className="h-6 w-6 mr-3" />
-                Serpent Stats
+                Paddle Stats
               </h4>
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
@@ -751,7 +682,7 @@ const SnakeGameComponent: React.FC<SnakeGameComponentProps> = ({
                   <span className="font-mono text-2xl font-bold text-white">{score}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-300 font-medium">Best Quest:</span>
+                  <span className="text-gray-300 font-medium">Best Score:</span>
                   <span className="font-mono text-2xl font-bold text-yellow-400">{highScore}</span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -764,11 +695,11 @@ const SnakeGameComponent: React.FC<SnakeGameComponentProps> = ({
                 </div>
                 <div className="w-full bg-gray-700 rounded-full h-2">
                   <div 
-                    className="bg-gradient-to-r from-green-500 to-emerald-500 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min((score / 25) * 100, 100)}%` }}
+                    className="bg-gradient-to-r from-blue-500 to-cyan-500 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${Math.min((score / 20) * 100, 100)}%` }}
                   ></div>
                 </div>
-                <p className="text-xs text-gray-400 text-center">Progress to maximum score</p>
+                <p className="text-xs text-gray-400 text-center">Progress to legendary score (20)</p>
               </div>
             </div>
 
@@ -776,7 +707,7 @@ const SnakeGameComponent: React.FC<SnakeGameComponentProps> = ({
               <h4 className="text-xl font-bold mb-4 text-yellow-300">💰 Game Economy</h4>
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-300">Cost per Quest:</span>
+                  <span className="text-gray-300">Cost per Game:</span>
                   <span className="text-yellow-400 font-bold">{GAME_COST_DT} DT</span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -784,94 +715,92 @@ const SnakeGameComponent: React.FC<SnakeGameComponentProps> = ({
                   <span className="text-green-400 font-bold">{parseFloat(dtTokenBalance).toFixed(2)} DT</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-300">Quests Available:</span>
+                  <span className="text-gray-300">Games Available:</span>
                   <span className="text-blue-400 font-bold">{Math.floor(parseFloat(dtTokenBalance) / GAME_COST_DT)}</span>
                 </div>
               </div>
               <div className="mt-4 p-3 bg-black/30 rounded-lg border border-yellow-400/30">
                 <p className="text-xs text-yellow-200 font-medium">
-                  🎯 Each quest costs 1 DT token. Tokens are deducted when you start playing!
+                  🎯 Each game costs 1 DT token. Tokens are deducted when you start playing!
                 </p>
               </div>
             </div>
 
             <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-6 border border-gray-600 shadow-lg">
-              <h4 className="text-xl font-bold mb-4 text-green-400">🎮 Serpent Controls</h4>
+              <h4 className="text-xl font-bold mb-4 text-blue-400">🎮 Paddle Controls</h4>
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col items-center space-y-2">
-                    <kbd className="px-3 py-2 bg-gray-700 rounded-lg text-sm font-mono border border-gray-500">↑ W</kbd>
-                    <span className="text-gray-300 text-xs">Up</span>
-                  </div>
-                  <div className="flex flex-col items-center space-y-2">
-                    <kbd className="px-3 py-2 bg-gray-700 rounded-lg text-sm font-mono border border-gray-500">↓ S</kbd>
-                    <span className="text-gray-300 text-xs">Down</span>
-                  </div>
-                  <div className="flex flex-col items-center space-y-2">
                     <kbd className="px-3 py-2 bg-gray-700 rounded-lg text-sm font-mono border border-gray-500">← A</kbd>
-                    <span className="text-gray-300 text-xs">Left</span>
+                    <span className="text-gray-300 text-xs">Move Left</span>
                   </div>
                   <div className="flex flex-col items-center space-y-2">
                     <kbd className="px-3 py-2 bg-gray-700 rounded-lg text-sm font-mono border border-gray-500">→ D</kbd>
-                    <span className="text-gray-300 text-xs">Right</span>
+                    <span className="text-gray-300 text-xs">Move Right</span>
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="flex flex-col items-center space-y-2">
+                    <div className="px-3 py-2 bg-gray-700 rounded-lg text-sm font-mono border border-gray-500">🖱️ Mouse</div>
+                    <span className="text-gray-300 text-xs">Follow Mouse</span>
                   </div>
                 </div>
               </div>
             </div>
 
             <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-6 border border-gray-600 shadow-lg">
-              <h4 className="text-xl font-bold mb-4 text-emerald-400">🏆 Quest Rules</h4>
+              <h4 className="text-xl font-bold mb-4 text-emerald-400">🏆 Game Rules</h4>
               <ul className="text-sm text-gray-300 space-y-3">
                 <li className="flex items-start">
-                  <span className="text-green-400 mr-2">●</span>
-                  Collect green orbs to grow and score
+                  <span className="text-blue-400 mr-2">⚽</span>
+                  Ball bounces off top, left, and right walls
                 </li>
                 <li className="flex items-start">
-                  <span className="text-yellow-400 mr-2">★</span>
-                  Golden orbs give bonus points (+2)
+                  <span className="text-green-400 mr-2">🏓</span>
+                  Hit the ball with your paddle to score
                 </li>
                 <li className="flex items-start">
-                  <span className="text-red-400 mr-2">☠</span>
-                  Avoid poison orbs (lose points)
+                  <span className="text-yellow-400 mr-2">⚡</span>
+                  Ball speed increases with each hit
                 </li>
                 <li className="flex items-start">
-                  <span className="text-red-400 mr-2">■</span>
-                  Red obstacles appear as you progress
+                  <span className="text-purple-400 mr-2">📐</span>
+                  Hit position affects bounce angle
                 </li>
                 <li className="flex items-start">
-                  <span className="text-purple-400 mr-2">⚡</span>
-                  Speed increases with your score
+                  <span className="text-red-400 mr-2">💥</span>
+                  Game ends if ball falls below paddle
                 </li>
                 <li className="flex items-start">
-                  <span className="text-blue-400 mr-2">🚫</span>
-                  Don't hit walls or yourself!
+                  <span className="text-orange-400 mr-2">🎯</span>
+                  Maximum possible score: 20 points
                 </li>
               </ul>
             </div>
 
             <div className="bg-gradient-to-br from-purple-900/50 to-blue-900/50 rounded-xl p-6 border border-purple-500/50 shadow-lg">
-              <h4 className="text-xl font-bold mb-4 text-purple-300">💎 NFT Treasures</h4>
+              <h4 className="text-xl font-bold mb-4 text-purple-300">💎 NFT Rewards</h4>
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-300">Scores 1-10:</span>
+                  <span className="text-gray-300">Scores 1-5:</span>
                   <span className="text-gray-400 font-semibold">⚪ Common</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-300">Scores 11-15:</span>
+                  <span className="text-gray-300">Scores 6-10:</span>
                   <span className="text-blue-400 font-semibold">🔵 Rare</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-300">Scores 16-20:</span>
+                  <span className="text-gray-300">Scores 11-15:</span>
                   <span className="text-purple-400 font-semibold">🟣 Epic</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-300">Scores 21-25:</span>
+                  <span className="text-gray-300">Scores 16-20:</span>
                   <span className="text-yellow-400 font-semibold">⭐ Legendary</span>
                 </div>
               </div>
               <div className="mt-4 p-3 bg-black/30 rounded-lg border border-purple-400/30">
                 <p className="text-xs text-purple-200 font-medium">
-                  🎯 Each score can only be claimed ONCE across all serpent masters!
+                  🎯 Each score can only be claimed ONCE across all paddle masters!
                 </p>
               </div>
             </div>
@@ -880,57 +809,79 @@ const SnakeGameComponent: React.FC<SnakeGameComponentProps> = ({
               <h4 className="text-xl font-bold mb-4 text-red-300">⚠️ Difficulty Scaling</h4>
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-300">Score 0-4:</span>
+                  <span className="text-gray-300">Score 1-5:</span>
                   <span className="text-green-400 font-semibold">🟢 Easy</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-300">Score 5-9:</span>
+                  <span className="text-gray-300">Score 6-10:</span>
                   <span className="text-yellow-400 font-semibold">🟡 Medium</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-300">Score 10-14:</span>
+                  <span className="text-gray-300">Score 11-15:</span>
                   <span className="text-orange-400 font-semibold">🟠 Hard</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-300">Score 15+:</span>
+                  <span className="text-gray-300">Score 16-20:</span>
                   <span className="text-red-400 font-semibold">🔴 Expert</span>
                 </div>
               </div>
               <div className="mt-4 p-3 bg-black/30 rounded-lg border border-red-400/30">
                 <p className="text-xs text-red-200 font-medium">
-                  🚨 Higher scores bring faster speeds, more obstacles, and poison food!
+                  🚨 Ball speed increases with every paddle hit - reaching 20 is nearly impossible!
                 </p>
               </div>
             </div>
 
             <div className="bg-gradient-to-br from-indigo-900/50 to-cyan-900/50 rounded-xl p-6 border border-indigo-500/50 shadow-lg">
-              <h4 className="text-xl font-bold mb-4 text-indigo-300">🎲 Food Types</h4>
+              <h4 className="text-xl font-bold mb-4 text-indigo-300">🎯 Pro Tips</h4>
               <div className="space-y-3 text-sm">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-green-400 text-lg">●</span>
-                    <span className="text-gray-300">Normal Food</span>
-                  </div>
-                  <span className="text-green-400 font-semibold">+1 Point</span>
+                <div className="flex items-start">
+                  <span className="text-cyan-400 mr-2">💡</span>
+                  <span className="text-gray-300">Hit the ball with paddle edges for sharper angles</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-yellow-400 text-lg">★</span>
-                    <span className="text-gray-300">Special Food</span>
-                  </div>
-                  <span className="text-yellow-400 font-semibold">+2 Points</span>
+                <div className="flex items-start">
+                  <span className="text-cyan-400 mr-2">💡</span>
+                  <span className="text-gray-300">Mouse control offers more precision than keyboard</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-red-400 text-lg">☠</span>
-                    <span className="text-gray-300">Poison Food</span>
-                  </div>
-                  <span className="text-red-400 font-semibold">-2 Points</span>
+                <div className="flex items-start">
+                  <span className="text-cyan-400 mr-2">💡</span>
+                  <span className="text-gray-300">Ball speed caps at 2.5x for playability</span>
+                </div>
+                <div className="flex items-start">
+                  <span className="text-cyan-400 mr-2">💡</span>
+                  <span className="text-gray-300">Center hits keep the ball more predictable</span>
                 </div>
               </div>
               <div className="mt-4 p-3 bg-black/30 rounded-lg border border-indigo-400/30">
                 <p className="text-xs text-indigo-200 font-medium">
-                  💡 Special and poison foods appear after score 10!
+                  🏆 The legendary score of 20 has been achieved by less than 1% of players!
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-green-900/50 to-teal-900/50 rounded-xl p-6 border border-green-500/50 shadow-lg">
+              <h4 className="text-xl font-bold mb-4 text-green-300">⚡ Physics Engine</h4>
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-300">Base Speed:</span>
+                  <span className="text-green-400 font-semibold">{BASE_BALL_SPEED} px/frame</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-300">Max Speed:</span>
+                  <span className="text-red-400 font-semibold">{BASE_BALL_SPEED * 2.5} px/frame</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-300">Paddle Size:</span>
+                  <span className="text-blue-400 font-semibold">{PADDLE_WIDTH}x{PADDLE_HEIGHT} px</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-300">Ball Radius:</span>
+                  <span className="text-purple-400 font-semibold">{BALL_RADIUS} px</span>
+                </div>
+              </div>
+              <div className="mt-4 p-3 bg-black/30 rounded-lg border border-green-400/30">
+                <p className="text-xs text-green-200 font-medium">
+                  ⚙️ Realistic physics with angle-based bouncing and speed acceleration!
                 </p>
               </div>
             </div>
@@ -941,4 +892,4 @@ const SnakeGameComponent: React.FC<SnakeGameComponentProps> = ({
   );
 };
 
-export default SnakeGameComponent;
+export default BallPaddleGame;

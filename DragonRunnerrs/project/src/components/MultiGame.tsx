@@ -3,128 +3,168 @@ import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
 import GameComponent from "./GameComponent";
 import NFTMarketplace from "./NFTMarketplace";
 import Leaderboard from "./Leaderboard";
-import SnakeGame from "./Snakes"; // 👈 Ensure file name matches (Snakes.tsx)
+import SnakeGame from "./Snakes";
+import WallBall from "./Wallball";
+import CarRunnerGame from "./CarRunnerGame"; // 👈 new component
 
 interface MultiGameProps {
   wallet: { address: string; balance: string; connected: boolean };
   dtTokenBalance: string;
+  claimedScores: Set<number>;
+  onClaimNFT: (score: number) => Promise<void>;
+  onRefreshTokenBalance: () => Promise<void>;
 }
 
 // --- Home Page ---
 function Home() {
   const navigate = useNavigate();
   return (
-    <div className="flex items-start gap-6 h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-8">
+    <div className="flex flex-wrap gap-6 h-screen bg-black via-gray-800 to-black p-8">
+       {/* --- Car Runner Game Card --- */}
+      <GameCard
+        title="Car Runner"
+        img="/car.jpg" // 👈 add logo in /public
+        playPath="/carrunner"
+        playIcon="🏎️"
+        color="from-yellow-400 to-red-500"
+        hover="hover:from-red-500 hover:to-yellow-400"
+        navigate={navigate}
+      />
       {/* --- Dragon Runner Card --- */}
-      <div
-        className="w-[300px] h-[360px] rounded-2xl shadow-xl 
-        border border-gray-700 bg-gray-900/70 backdrop-blur-xl 
-        flex flex-col items-center justify-between p-6 
-        transition hover:scale-105 hover:shadow-blue-500/30"
-      >
-        <img
-          src="/dragonlogo1.jpg"
-          alt="Dragon Runner Logo"
-          className="w-20 h-20 object-contain drop-shadow-md"
-        />
-        <h1 className="text-2xl font-bold text-white tracking-wide text-center">
-          Dragon Runner
-        </h1>
-
-        <button
-          onClick={() => navigate("/dragonrunner")}
-          className="px-5 py-2 w-full text-base font-semibold 
-            rounded-lg bg-gradient-to-r from-blue-500 to-purple-600 
-            text-white shadow-md hover:from-purple-600 hover:to-blue-500 
-            transition-all duration-300"
-        >
-          Play 🎮
-        </button>
-
-        <div className="flex gap-2 w-full">
-          <button
-            onClick={() => navigate("/marketplace")}
-            className="flex-1 px-3 py-2 rounded-md text-xs font-medium 
-              border border-gray-600 text-gray-300 hover:bg-gray-800 transition"
-          >
-            Marketplace
-          </button>
-          <button
-            onClick={() => navigate("/leaderboard")}
-            className="flex-1 px-3 py-2 rounded-md text-xs font-medium 
-              border border-gray-600 text-gray-300 hover:bg-gray-800 transition"
-          >
-            Leaderboard
-          </button>
-        </div>
-      </div>
+      <GameCard
+        title="Dragon Runner"
+        img="/dragonlogo1.jpg"
+        playPath="/dragonrunner"
+        playIcon="🎮"
+        color="from-blue-500 to-purple-600"
+        hover="hover:from-purple-600 hover:to-blue-500"
+        navigate={navigate}
+      />
 
       {/* --- Snake Game Card --- */}
-      <div
-        className="w-[300px] h-[360px] rounded-2xl shadow-xl 
+      <GameCard
+        title="Snake Game"
+        img="/snak.jpg"
+        playPath="/snake"
+        playIcon="🐍"
+        color="from-emerald-500 to-teal-600"
+        hover="hover:from-teal-600 hover:to-emerald-500"
+        navigate={navigate}
+      />
+
+      {/* --- WallBall Game Card --- */}
+      <GameCard
+        title="Wall Ball"
+        img="/walball.jpg"
+        playPath="/wallball"
+        playIcon="🏐"
+        color="from-orange-500 to-red-600"
+        hover="hover:from-red-600 hover:to-orange-500"
+        navigate={navigate}
+      />
+           <GameCard
+        title="Land Mining"
+        img="/land.png"
+        playPath="/wallball"
+        playIcon="🏐"
+        color="from-orange-500 to-red-600"
+        hover="hover:from-red-600 hover:to-orange-500"
+        navigate={navigate}
+      />
+           <GameCard
+        title="WallBall"
+        img="/walball.jpg"
+        playPath="/wallball"
+        playIcon="🏐"
+        color="from-orange-500 to-red-600"
+        hover="hover:from-red-600 hover:to-orange-500"
+        navigate={navigate}
+      />
+
+     
+    </div>
+  );
+}
+
+// --- Reusable Card Component ---
+function GameCard({
+  title,
+  img,
+  playPath,
+  playIcon,
+  color,
+  hover,
+  navigate,
+}: {
+  title: string;
+  img: string;
+  playPath: string;
+  playIcon: string;
+  color: string;
+  hover: string;
+  navigate: ReturnType<typeof useNavigate>;
+}) {
+  return (
+    <div
+      className="w-[300px] h-[360px] rounded-2xl shadow-xl 
         border border-gray-700 bg-gray-900/70 backdrop-blur-xl 
         flex flex-col items-center justify-between p-6 
-        transition hover:scale-105 hover:shadow-green-500/30"
+        transition hover:scale-105"
+    >
+      <img
+        src={img}
+        alt={`${title} Logo`}
+        className="w-20 h-20 object-contain drop-shadow-md"
+      />
+      <h1 className="text-2xl font-bold text-white tracking-wide text-center">
+        {title}
+      </h1>
+
+      <button
+        onClick={() => navigate(playPath)}
+        className={`px-5 py-2 w-full text-base font-semibold 
+          rounded-lg bg-gradient-to-r ${color} 
+          text-white shadow-md ${hover} 
+          transition-all duration-300`}
       >
-        <img
-          src="/snak.jpg" // 👈 Use a different logo if you have one
-          alt="Snake Game Logo"
-          className="w-20 h-20 object-contain drop-shadow-md"
-        />
-        <h1 className="text-2xl font-bold text-white tracking-wide text-center">
-          Snake Game
-        </h1>
+        Play {playIcon}
+      </button>
 
+      <div className="flex gap-2 w-full">
         <button
-          onClick={() => navigate("/snake")}
-          className="px-5 py-2 w-full text-base font-semibold 
-            rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 
-            text-white shadow-md hover:from-teal-600 hover:to-emerald-500 
-            transition-all duration-300"
+          onClick={() => navigate("/marketplace")}
+          className="flex-1 px-3 py-2 rounded-md text-xs font-medium 
+            border border-gray-600 text-gray-300 hover:bg-gray-800 transition"
         >
-          Play 🐍
+          Marketplace
         </button>
-
-        <div className="flex gap-2 w-full">
-          <button
-            onClick={() => navigate("/marketplace")}
-            className="flex-1 px-3 py-2 rounded-md text-xs font-medium 
-              border border-gray-600 text-gray-300 hover:bg-gray-800 transition"
-          >
-            Marketplace
-          </button>
-          <button
-            onClick={() => navigate("/leaderboard")}
-            className="flex-1 px-3 py-2 rounded-md text-xs font-medium 
-              border border-gray-600 text-gray-300 hover:bg-gray-800 transition"
-          >
-            Leaderboard
-          </button>
-        </div>
+        <button
+          onClick={() => navigate("/leaderboard")}
+          className="flex-1 px-3 py-2 rounded-md text-xs font-medium 
+            border border-gray-600 text-gray-300 hover:bg-gray-800 transition"
+        >
+          Leaderboard
+        </button>
       </div>
     </div>
   );
 }
 
 // --- Router Wrapper ---
-export default function MultiGame({ wallet, dtTokenBalance }: MultiGameProps) {
-  // State to track claimed scores from both games
-  const [claimedScores, setClaimedScores] = useState<Set<number>>(new Set());
+export default function MultiGame({ 
+  wallet, 
+  dtTokenBalance, 
+  claimedScores, 
+  onClaimNFT, 
+  onRefreshTokenBalance 
+}: MultiGameProps) {
   const [latestClaimedScore, setLatestClaimedScore] = useState<number>(0);
 
-  // Function to handle NFT claiming from games
   const handleClaimNFT = (score: number) => {
     if (score > 0 && !claimedScores.has(score)) {
-      setClaimedScores(prev => new Set([...prev, score]));
+      onClaimNFT(score);
       setLatestClaimedScore(score);
-      console.log(`NFT claimed for score ${score}! Navigate to marketplace to mint.`);
     }
-  };
-
-  // Function to refresh token balance
-  const refreshTokenBalance = () => {
-    // This will be handled by the parent component
-    console.log("Token balance refresh requested");
   };
 
   return (
@@ -132,7 +172,7 @@ export default function MultiGame({ wallet, dtTokenBalance }: MultiGameProps) {
       <Routes>
         <Route path="/" element={<Home />} />
 
-        {/* Dragon Runner Route */}
+        {/* Dragon Runner */}
         <Route
           path="/dragonrunner"
           element={
@@ -142,22 +182,52 @@ export default function MultiGame({ wallet, dtTokenBalance }: MultiGameProps) {
               claimedScores={claimedScores}
               walletConnected={wallet.connected}
               dtTokenBalance={dtTokenBalance}
-              onRefreshTokenBalance={refreshTokenBalance}
+              onRefreshTokenBalance={onRefreshTokenBalance}
             />
           }
         />
 
-        {/* Snake Game Route */}
+        {/* Snake Game */}
         <Route
           path="/snake"
           element={
-            <SnakeGame 
+            <SnakeGame
               onScore={(s: number) => console.log("Score:", s)}
               onClaimNFT={handleClaimNFT}
               claimedScores={claimedScores}
               walletConnected={wallet.connected}
               dtTokenBalance={dtTokenBalance}
-              onRefreshTokenBalance={refreshTokenBalance}
+              onRefreshTokenBalance={onRefreshTokenBalance}
+            />
+          }
+        />
+
+        {/* WallBall Game */}
+        <Route
+          path="/wallball"
+          element={
+            <WallBall
+              onScore={(s: number) => console.log("Score:", s)}
+              onClaimNFT={handleClaimNFT}
+              claimedScores={claimedScores}
+              walletConnected={wallet.connected}
+              dtTokenBalance={dtTokenBalance}
+              onRefreshTokenBalance={onRefreshTokenBalance}
+            />
+          }
+        />
+
+        {/* Car Runner Game */}
+        <Route
+          path="/carrunner"
+          element={
+            <CarRunnerGame
+              onScore={(s: number) => console.log("Score:", s)}
+              onClaimNFT={handleClaimNFT}
+              claimedScores={claimedScores}
+              walletConnected={wallet.connected}
+              dtTokenBalance={dtTokenBalance}
+              onRefreshTokenBalance={onRefreshTokenBalance}
             />
           }
         />
@@ -170,16 +240,7 @@ export default function MultiGame({ wallet, dtTokenBalance }: MultiGameProps) {
               walletAddress={wallet.address}
               walletConnected={wallet.connected}
               scoreToMint={latestClaimedScore}
-              onClaimComplete={() => {
-                // When marketplace reports a claim completed, refresh claimedScores UI
-                setLatestClaimedScore(0);
-                // Optionally remove the score from claimedScores to allow re-minting if needed
-                // setClaimedScores(prev => {
-                //   const newSet = new Set(prev);
-                //   newSet.delete(latestClaimedScore);
-                //   return newSet;
-                // });
-              }}
+              onClaimComplete={() => setLatestClaimedScore(0)}
             />
           }
         />
@@ -187,7 +248,7 @@ export default function MultiGame({ wallet, dtTokenBalance }: MultiGameProps) {
         {/* Leaderboard */}
         <Route
           path="/leaderboard"
-          element={<Leaderboard  />}
+          element={<Leaderboard />}
         />
       </Routes>
     </BrowserRouter>

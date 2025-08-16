@@ -33,6 +33,10 @@ const NFTMarketplace: React.FC<NFTMarketplaceProps> = ({
   scoreToMint = 0,
   onClaimComplete = () => {}
 }) => {
+  console.log('NFTMarketplace rendered with scoreToMint:', scoreToMint);
+  console.log('walletConnected:', walletConnected);
+  console.log('walletAddress:', walletAddress);
+  
   const [filter, setFilter] = useState<'all' | 'owned' | 'available' | 'leaderboard'>('all');
   const [myNFTs, setMyNFTs] = useState<NFTData[]>([]);
   const [allNFTs, setAllNFTs] = useState<NFTData[]>([]);
@@ -336,7 +340,10 @@ const NFTMarketplace: React.FC<NFTMarketplaceProps> = ({
               <div>
                 <h3 className="text-2xl font-bold mb-4 text-green-400">🎉 Claim Your NFT!</h3>
                 <p className="text-lg mb-6">
-                  Congratulations! You achieved score <span className="font-bold text-yellow-400">{scoreToMint}</span>
+                  Congratulations! You achieved score <span className="text-yellow-400 font-bold">{scoreToMint}</span>
+                </p>
+                <p className="text-sm text-gray-300 mb-6">
+                  This NFT represents your achievement in the game. Mint it now to add it to your collection!
                 </p>
                 <button
                   onClick={() => claimNFT(scoreToMint)}
@@ -368,6 +375,14 @@ const NFTMarketplace: React.FC<NFTMarketplaceProps> = ({
           </div>
         </div>
       )}
+      
+      {/* Debug info */}
+      <div className="mb-4 p-4 bg-gray-800 rounded-lg text-sm">
+        <p>Debug Info:</p>
+        <p>scoreToMint: {scoreToMint}</p>
+        <p>scoreToMint &gt; 0: {scoreToMint > 0 ? 'true' : 'false'}</p>
+        <p>Claim NFT section should show: {scoreToMint && scoreToMint > 0 ? 'YES' : 'NO'}</p>
+      </div>
 
       {/* Filter Tabs */}
       <div className="flex flex-wrap justify-center gap-2 mb-8">

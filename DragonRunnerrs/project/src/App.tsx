@@ -101,6 +101,9 @@ function App() {
 
   // Claim NFT locally (GameComponent calls this when it successfully mints)
   const claimNFT = async (score: number) => {
+    console.log('App.tsx claimNFT called with score:', score);
+    console.log('Current claimedScores:', Array.from(claimedScores));
+    
     if (!wallet.connected) {
       alert("Please connect your wallet first");
       return;
@@ -112,7 +115,11 @@ function App() {
     }
 
     // Add to claimed set (UI only — actual minting happens inside marketplace or GameComponent if wired)
-    setClaimedScores((prev) => new Set(prev).add(score));
+    setClaimedScores((prev) => {
+      const newSet = new Set(prev).add(score);
+      console.log('Updated claimedScores:', Array.from(newSet));
+      return newSet;
+    });
 
     toast.success(`NFT claimed for score ${score}!`, {
       duration: 3000,
@@ -201,15 +208,13 @@ function App() {
 
       <main className="container mx-auto px-4 py-8">
         {currentView === "game" && (
-          // <GameComponent
-          //   onScore={handleGameScore}
-          //   onClaimNFT={claimNFT}
-          //   claimedScores={claimedScores}
-          //   walletConnected={wallet.connected}
-          //   dtTokenBalance={dtTokenBalance}
-          //   onRefreshTokenBalance={refreshTokenBalance}
-          // />
-          <MultiGame wallet={wallet} dtTokenBalance={dtTokenBalance} />
+          <MultiGame 
+            wallet={wallet} 
+            dtTokenBalance={dtTokenBalance}
+            claimedScores={claimedScores}
+            onClaimNFT={claimNFT}
+            onRefreshTokenBalance={refreshTokenBalance}
+          />
         )}
 
         {currentView === "marketplace" && (
