@@ -3,7 +3,7 @@ import { Hammer, Loader2 } from "lucide-react"
 
 export default function MultiGame() {
   return (
-    <div className="flex items-center justify-center h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-black text-white">
+    <div className="flex items-center justify-center h-screen bg-black text-white">
       <div className="text-center space-y-6">
         {/* Icon */}
         <div className="flex justify-center">

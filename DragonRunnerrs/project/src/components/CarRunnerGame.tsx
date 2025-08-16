@@ -227,8 +227,9 @@ const CarRunnerGame: React.FC<GameComponentProps> = ({
     const newScore = Math.min(Math.floor(gameObjects.distanceTraveled / DISTANCE_PER_SCORE), MAX_SCORE);
     if (newScore > gameObjects.score) {
       gameObjects.score = newScore;
-      setScore(gameObjects.score);
-      onScore(gameObjects.score);
+setScore(Math.floor(gameObjects.score / 10));
+onScore(Math.floor(gameObjects.score / 10));
+
     }
 
     // Check for win condition

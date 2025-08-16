@@ -166,7 +166,7 @@ const Header: React.FC<HeaderProps> = ({
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <img src="/dragonlogo.jpg" alt="Dragon Logo" className="h-8 w-8 rounded" />
-              <h1 className="text-2xl font-bold">DragonNFT</h1>
+              <h1 className="text-2xl font-bold">Avalanche arcade</h1>
             </div>
 
             <nav className="hidden md:flex items-center space-x-8">

@@ -6,7 +6,7 @@ import Leaderboard from "./Leaderboard";
 import SnakeGame from "./Snakes";
 import WallBall from "./Wallball";
 import CarRunnerGame from "./CarRunnerGame"; // 👈 new component
-
+import LaunchSoon from "./LaunchSoon";
 interface MultiGameProps {
   wallet: { address: string; balance: string; connected: boolean };
   dtTokenBalance: string;
@@ -65,16 +65,16 @@ function Home() {
            <GameCard
         title="Land Mining"
         img="/land.png"
-        playPath="/wallball"
+        playPath="/LaunchSoon"
         playIcon="🏐"
         color="from-orange-500 to-red-600"
         hover="hover:from-red-600 hover:to-orange-500"
         navigate={navigate}
       />
            <GameCard
-        title="WallBall"
-        img="/walball.jpg"
-        playPath="/wallball"
+        title="Pool Ball"
+        img="/pool.jpg"
+        playPath="/LaunchSoon"
         playIcon="🏐"
         color="from-orange-500 to-red-600"
         hover="hover:from-red-600 hover:to-orange-500"
@@ -216,6 +216,7 @@ export default function MultiGame({
             />
           }
         />
+        <Route path="/LaunchSoon" element={<LaunchSoon/>}></Route>
 
         {/* Car Runner Game */}
         <Route
