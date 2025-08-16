@@ -225,7 +225,7 @@ function App() {
           />
         )}
 
-        {currentView === "leaderboard" && <Leaderboard claimedScores={claimedScores} />}
+        {currentView === "leaderboard" && <Leaderboard />}
       </main>
 
       <footer className="border-t border-gray-800 mt-16">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Play, Pause, RotateCcw, Award, Coins } from 'lucide-react';
+import { Play, RotateCcw, Award, Coins } from 'lucide-react';
 import { ethers } from 'ethers';
 import DtokenAbi from "../ContractAbi/Dtoken.json";
 import toast from 'react-hot-toast';
@@ -583,8 +583,29 @@ const SnakeGameComponent: React.FC<SnakeGameComponentProps> = ({
   const isScoreClaimed = claimedScores.has(score);
   const canClaimNFT = gameState === 'gameOver' && score > 0 && !isScoreClaimed && walletConnected;
 
+  // Function to handle NFT claiming
+  const handleClaimNFT = () => {
+    if (canClaimNFT) {
+      onClaimNFT(score);
+      toast.success(`Score ${score} claimed! Navigate to marketplace to mint your NFT!`, {
+        duration: 5000,
+      });
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto p-4 bg-black text-white min-h-screen">
+      {/* Navigation to Marketplace */}
+      <div className="text-right mb-4">
+        <button
+          onClick={() => window.location.href = '/marketplace'}
+          className="px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl hover:from-orange-600 hover:to-red-600 transition-all transform hover:scale-105 text-lg font-bold shadow-lg flex items-center space-x-2 mx-auto"
+        >
+          <Award className="h-6 w-6" />
+          <span>NFT Marketplace</span>
+        </button>
+      </div>
+
       <div className="text-center mb-10">
         <h2 className="text-5xl font-extrabold mb-4 bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent leading-normal">
           Viper's Quest
@@ -709,7 +730,7 @@ const SnakeGameComponent: React.FC<SnakeGameComponentProps> = ({
 
                     {canClaimNFT && (
                       <button
-                        onClick={() => onClaimNFT(score)}
+                        onClick={handleClaimNFT}
                         className="flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl hover:from-green-600 hover:to-emerald-600 transition-all transform hover:scale-105 text-lg font-bold shadow-lg animate-pulse"
                       >
                         <Award className="h-6 w-6" />
@@ -720,7 +741,13 @@ const SnakeGameComponent: React.FC<SnakeGameComponentProps> = ({
                     {isScoreClaimed && score > 0 && (
                       <div className="text-yellow-400 text-center max-w-sm bg-yellow-900/30 p-4 rounded-lg border border-yellow-600">
                         <p className="font-bold">⚠️ Score {score} Claimed!</p>
-                        <p className="text-sm mt-2">Mint it from marketplace</p>
+                        <p className="text-sm mt-2">Navigate to marketplace to mint your NFT</p>
+                        <button
+                          onClick={() => window.location.href = '/marketplace'}
+                          className="mt-3 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-all text-sm font-semibold"
+                        >
+                          Go to Marketplace
+                        </button>
                       </div>
                     )}
 

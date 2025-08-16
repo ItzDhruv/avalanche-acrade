@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
 import GameComponent from "./GameComponent";
 import NFTMarketplace from "./NFTMarketplace";
@@ -108,6 +108,25 @@ function Home() {
 
 // --- Router Wrapper ---
 export default function MultiGame({ wallet, dtTokenBalance }: MultiGameProps) {
+  // State to track claimed scores from both games
+  const [claimedScores, setClaimedScores] = useState<Set<number>>(new Set());
+  const [latestClaimedScore, setLatestClaimedScore] = useState<number>(0);
+
+  // Function to handle NFT claiming from games
+  const handleClaimNFT = (score: number) => {
+    if (score > 0 && !claimedScores.has(score)) {
+      setClaimedScores(prev => new Set([...prev, score]));
+      setLatestClaimedScore(score);
+      console.log(`NFT claimed for score ${score}! Navigate to marketplace to mint.`);
+    }
+  };
+
+  // Function to refresh token balance
+  const refreshTokenBalance = () => {
+    // This will be handled by the parent component
+    console.log("Token balance refresh requested");
+  };
+
   return (
     <BrowserRouter>
       <Routes>
@@ -119,28 +138,26 @@ export default function MultiGame({ wallet, dtTokenBalance }: MultiGameProps) {
           element={
             <GameComponent
               onScore={(s: number) => console.log("Score:", s)}
-              onClaimNFT={(s: number) => console.log("Claim NFT for:", s)}
-              claimedScores={new Set()}
+              onClaimNFT={handleClaimNFT}
+              claimedScores={claimedScores}
               walletConnected={wallet.connected}
               dtTokenBalance={dtTokenBalance}
-              onRefreshTokenBalance={() => {}}
+              onRefreshTokenBalance={refreshTokenBalance}
             />
           }
         />
 
-        {/* Snake Game Route (clean like Dragon Runner) */}
-       
-
-               <Route
+        {/* Snake Game Route */}
+        <Route
           path="/snake"
           element={
             <SnakeGame 
               onScore={(s: number) => console.log("Score:", s)}
-              onClaimNFT={(s: number) => console.log("Claim NFT for:", s)}
-              claimedScores={new Set()}
+              onClaimNFT={handleClaimNFT}
+              claimedScores={claimedScores}
               walletConnected={wallet.connected}
               dtTokenBalance={dtTokenBalance}
-              onRefreshTokenBalance={() => {}}
+              onRefreshTokenBalance={refreshTokenBalance}
             />
           }
         />
@@ -152,8 +169,17 @@ export default function MultiGame({ wallet, dtTokenBalance }: MultiGameProps) {
             <NFTMarketplace
               walletAddress={wallet.address}
               walletConnected={wallet.connected}
-              scoreToMint={0}
-              onClaimComplete={() => {}}
+              scoreToMint={latestClaimedScore}
+              onClaimComplete={() => {
+                // When marketplace reports a claim completed, refresh claimedScores UI
+                setLatestClaimedScore(0);
+                // Optionally remove the score from claimedScores to allow re-minting if needed
+                // setClaimedScores(prev => {
+                //   const newSet = new Set(prev);
+                //   newSet.delete(latestClaimedScore);
+                //   return newSet;
+                // });
+              }}
             />
           }
         />
@@ -161,7 +187,7 @@ export default function MultiGame({ wallet, dtTokenBalance }: MultiGameProps) {
         {/* Leaderboard */}
         <Route
           path="/leaderboard"
-          element={<Leaderboard claimedScores={new Set()} />}
+          element={<Leaderboard  />}
         />
       </Routes>
     </BrowserRouter>
