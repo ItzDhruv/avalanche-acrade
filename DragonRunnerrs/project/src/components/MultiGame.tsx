@@ -22,7 +22,7 @@ function Home() {
     <div className="flex flex-wrap gap-6 h-screen bg-black via-gray-800 to-black p-8">
        {/* --- Car Runner Game Card --- */}
       <GameCard
-        title="Car Runner"
+        title="Road Rivals"
         img="/car.jpg" // 👈 add logo in /public
         playPath="/carrunner"
         playIcon="🏎️"
@@ -90,7 +90,7 @@ function Home() {
         hover="hover:from-red-600 hover:to-orange-500"
         navigate={navigate}
       />
-      
+
        <GameCard
         title="Pool Ball"
         img="/pool.jpg"
