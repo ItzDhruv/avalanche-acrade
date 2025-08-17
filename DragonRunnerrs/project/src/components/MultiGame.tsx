@@ -92,8 +92,8 @@ function Home() {
       />
 
        <GameCard
-        title="Pool Ball"
-        img="/pool.jpg"
+        title="Chess"
+        img="/chess.jpg"
         playPath="/LaunchSoon"
         playIcon="🏐"
         color="from-orange-500 to-red-600"
