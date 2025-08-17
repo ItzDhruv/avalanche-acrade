@@ -29,7 +29,7 @@ contract Dtoken is ERC20{
             _transfer(msg.sender, address(this), amount); // Transfer 1 DT from player to contract
         }
 
-
+//
     function withdrwal()external{
         require(msg.sender == owner, "Only owner can withdrwal");
         payable(msg.sender).transfer(address(this).balance);

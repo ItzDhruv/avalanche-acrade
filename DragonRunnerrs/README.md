@@ -174,6 +174,10 @@ MIT License — feel free to fork and build upon this project.
 📧 Email: [dhruvdobariya897@gmail.com](mailto:dhruvdobariya897@gmail.com)
 📍 Surat, Gujarat, India
 
-```
+**Rakesh kumawat**
+ 📧 Email: rakeshkumawatrrkk128777@gmail.com 
+ 📍 Mumbai, Maharashtra, India
 
----
+**Aniket Raikar** 
+ 📧 Email: aniketraikar82@gmail.com 
+📍 Mumbai, Maharashtra, India
