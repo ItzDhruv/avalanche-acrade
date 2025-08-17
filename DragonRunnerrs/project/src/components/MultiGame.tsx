@@ -33,7 +33,7 @@ function Home() {
       {/* --- Dragon Runner Card --- */}
       <GameCard
         title="Dragon Runner"
-        img="/dragonlogo1.jpg"
+        img="/godzila.jpg"
         playPath="/dragonrunner"
         playIcon="🎮"
         color="from-blue-500 to-purple-600"
