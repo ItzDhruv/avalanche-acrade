@@ -233,17 +233,17 @@ onScore(Math.floor(gameObjects.score / 10));
     }
 
     // Check for win condition
-    if (gameObjects.score >= MAX_SCORE) {
-      gameLoopRef.current = false;
-      setGameState('won');
-      if (gameObjects.score > highScore) {
-        setHighScore(gameObjects.score);
-        try {
-          localStorage?.setItem('carRunnerHighScore', gameObjects.score.toString());
-        } catch {}
-      }
-      return;
-    }
+    // if (gameObjects.score >= MAX_SCORE) {
+    //   gameLoopRef.current = false;
+    //   setGameState('won');
+    //   if (gameObjects.score > highScore) {
+    //     setHighScore(gameObjects.score);
+    //     try {
+    //       localStorage?.setItem('carRunnerHighScore', gameObjects.score.toString());
+    //     } catch {}
+    //   }
+    //   return;
+    // }
 
     // Update obstacles
     const obstacles = gameObjects.obstacles;
@@ -699,11 +699,11 @@ onScore(Math.floor(gameObjects.score / 10));
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <span className="text-gray-300 font-medium">Current Score:</span>
-                  <span className="font-mono text-2xl font-bold text-white">{score}/25</span>
+                  <span className="font-mono text-2xl font-bold text-white">{Math.floor(score/10)}/25</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-300 font-medium">Best Race:</span>
-                  <span className="font-mono text-2xl font-bold text-blue-400">{highScore}/25</span>
+                  <span className="font-mono text-2xl font-bold text-blue-400">{Math.floor(highScore/10)}/25</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-300 font-medium">DT Balance:</span>

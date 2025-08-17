@@ -81,6 +81,27 @@ function Home() {
         navigate={navigate}
       />
 
+      <GameCard
+        title="Carrom"
+        img="/carrom.jpg"
+        playPath="/LaunchSoon"
+        playIcon="🏐"
+        color="from-orange-500 to-red-600"
+        hover="hover:from-red-600 hover:to-orange-500"
+        navigate={navigate}
+      />
+      
+       <GameCard
+        title="Pool Ball"
+        img="/pool.jpg"
+        playPath="/LaunchSoon"
+        playIcon="🏐"
+        color="from-orange-500 to-red-600"
+        hover="hover:from-red-600 hover:to-orange-500"
+        navigate={navigate}
+      />
+       
+      
      
     </div>
   );
