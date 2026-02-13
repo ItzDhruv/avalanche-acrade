@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { ethers } from "ethers";
 import { Trophy, Medal, Award, Crown, TrendingUp, Calendar, User, Star, Zap } from "lucide-react";
 
-const GAME_SCORE_NFT_CONTRACT = "0xA4Ed3766BcE57eD54D13B94560a7eEDd2969cfF8";
+const GAME_SCORE_NFT_CONTRACT = "0x0B19a6653db82eCA182A2a60B4ca2735aF63BFb9";
 
 interface LeaderEntry {
   rank: number;

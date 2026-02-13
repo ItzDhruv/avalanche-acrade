@@ -33,7 +33,7 @@ interface Obstacle extends GameObject {
 const DT_CONTRACT_ABI = DtokenAbi;
 
 // Replace with your actual Dragon Token contract address
-const DT_CONTRACT_ADDRESS = "0x079Fe31EE22088a6B9cB2615D8e6AB9DFb3A75a5";
+const DT_CONTRACT_ADDRESS = "0x34471F42647E058A468F757751b5bca1b8903231";
 
 const CarRunnerGame: React.FC<GameComponentProps> = ({ 
   onScore = () => {}, 

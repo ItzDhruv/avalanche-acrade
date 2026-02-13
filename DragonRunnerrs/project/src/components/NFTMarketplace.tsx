@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import NftAbi from "../ContractAbi/Nft.json"
 
 const GAME_SCORE_NFT_ABI = NftAbi;
-const GAME_SCORE_NFT_CONTRACT = "0xA4Ed3766BcE57eD54D13B94560a7eEDd2969cfF8";
+const GAME_SCORE_NFT_CONTRACT = "0x0B19a6653db82eCA182A2a60B4ca2735aF63BFb9";
 
 interface NFTMarketplaceProps {
   walletAddress: string;

@@ -25,7 +25,7 @@ interface HeaderProps {
 const DT_CONTRACT_ABI = DtokenAbi;
 
 // Replace with your actual Dragon Token contract address
-const DT_CONTRACT_ADDRESS = "0x079Fe31EE22088a6B9cB2615D8e6AB9DFb3A75a5";
+const DT_CONTRACT_ADDRESS = "0x34471F42647E058A468F757751b5bca1b8903231";
 
 // Token price from smart contract: 0.0002 ETH per token
 const TOKEN_PRICE_ETH = "0.0002";
